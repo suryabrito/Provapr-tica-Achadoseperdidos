@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escola - Achados e Perdidos</title>
+    
+    <script src="https://unpkg.com" crossorigin></script>
+    <script src="https://unpkg.com" crossorigin></script>
+    <script src="https://unpkg.com"></script>
+</head>
+<body style="margin: 0; background-color: #fafafa;">
+    <div id="root"></div>
+
+    <script type="text/babel">
+    
+        const dadosIniciais = [
+            { id: '1', descricao: 'Garrafa térmica preta da Nike', localEncontrado: 'Quadra', dataEncontro: '2026-09-15', statusAtual: 'ENCONTRADO', categoria: 'Material Escolar' },
+            { id: '2', descricao: 'Casaco de moletom azul', localEncontrado: 'Pátio', dataEncontro: '2026-09-16', statusAtual: 'ENCONTRADO', categoria: 'Vestuário' },
+            { id: '3', descricao: 'Estojo escolar com canetas', localEncontrado: 'Sala 102', dataEncontro: '2026-09-17', statusAtual: 'DEVOLVIDO', quemRecebeu: 'Lucas Silva', dataDevolucao: '17/09/2026' }
+        ];
+
+        function App() {
+            const [objetos, setObjetos] = React.useState(() => {
+                const salvos = localStorage.getItem('@AchadosPerdidos:dados');
+                return salvos ? JSON.parse(salvos) : dadosIniciais;
+            });
+            const [termoBusca, setTermoBusca] = React.useState('');
+
+            // Estados do formulário
+            const [descricao, setDescricao] = React.useState('');
+            const [localEncontrado, setLocalEncontrado] = React.useState('');
+            const [dataEncontro, setDataEncontro] = React.useState('');
+            const [categoria, setCategoria] = React.useState('Material Escolar');
+
+            React.useEffect(() => {
+                localStorage.setItem('@AchadosPerdidos:dados', JSON.stringify(objetos));
+            }, [objetos]);
+
+            // --- FILTRO POR DESCRIÇÃO (REGRA OBRIGATÓRIA) ---
+            const objetosFiltrados = objetos.filter(obj => 
+                obj.descricao.toLowerCase().includes(termoBusca.toLowerCase())
+            );
+
+            // --- RESUMO VISUAL / DASHBOARD (FOCO SORTEADO) ---
+            const totalEncontrados = objetos.filter(obj => obj.statusAtual === 'ENCONTRADO').length;
+            const totalDevolvidos = objetos.filter(obj => obj.statusAtual === 'DEVOLVIDO').length;
+
+            // --- VALIDAÇÃO DO PARÂMETRO INDIVIDUAL (VALOR 3) ---
+            const listaCategorias = ['Material Escolar', 'Vestuário', 'Eletrônicos', 'Outros'];
+            const categoriasAlerta = listaCategorias.filter(cat => {
+                const totalNaCategoria = objetos.filter(obj => obj.categoria === cat && obj.statusAtual === 'ENCONTRADO').length;
+                return totalNaCategoria >= 3;
+            });
+
+            const handleCadastrar = (e) => {
+                e.preventDefault();
+                if (!descricao || !localEncontrado || !dataEncontro) {
+                    alert('Preencha os campos obrigatórios!');
+                    return;
+                }
+                const novo = {
+                    id: String(Date.now()),
+                    descricao,
+                    localEncontrado,
+                    dataEncontro,
+                    statusAtual: 'ENCONTRADO',
+                    categoria
+                };
+                setObjetos([novo, ...objetos]);
+                setDescricao(''); setLocalEncontrado(''); setDataEncontro('');
+            };
+
+            // --- VALIDAÇÃO DA REGRA INDIVIDUAL (NÃO DEVOLVER ITEM JÁ ENTREGUE) ---
+            const handleDevolver = (id) => {
+                const item = objetos.find(obj => obj.id === id);
+                if (!item) return;
+
+                if (item.statusAtual === 'DEVOLVIDO') {
+                    alert('Erro crítico: Este item já foi entregue ao proprietário e não pode ser alterado!');
+                    return;
+                }
+
+                const nomeResponsavel = prompt('Digite o nome do aluno/proprietário que está retirando o item:');
+                if (!nomeResponsavel || nomeResponsavel.trim() === '') {
+                    alert('Erro: É obrigatório registrar o nome de quem recebeu.');
+                    return;
+                }
+
+                setObjetos(prev => prev.map(obj => {
+                    if (obj.id === id) {
+                        return {
+                            ...obj,
+                            statusAtual: 'DEVOLVIDO',
+                            quemRecebeu: nomeResponsavel,
+                            dataDevolucao: new Date().toLocaleDateString('pt-BR')
+                        };
+                    }
+                    return obj;
+                }));
+            };
+
+            return (
+                <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto', color: '#333' }}>
+                    <header style={{ borderBottom: '2px solid #0070f3', paddingBottom: '10px', marginBottom: '25px' }}>
+                        <h1 style={{ margin: 0, color: '#0070f3', fontSize: '26px' }}>Escola - Sistema de Achados e Perdidos</h1>
+                        <p style={{ margin: '5px 0 0 0', color: '#666' }}>Painel da Secretaria • Foco: Status de Acompanhamento</p>
+                    </header>
+
+                    {/* DASHBOARD */}
+                    <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+                        <div style={{ background: '#e1f5fe', padding: '20px', borderRadius: '8px', borderLeft: '5px solid #0288d1' }}>
+                            <h3 style={{ margin: '0 0 10px 0', color: '#0288d1', fontSize: '15px' }}>📦 Objetos Aguardando Retirada</h3>
+                            <p style={{ fontSize: '36px', fontWeight: 'bold', margin: 0 }}>{totalEncontrados}</p>
+                        </div>
+                        <div style={{ background: '#e8f5e9', padding: '20px', borderRadius: '8px', borderLeft: '5px solid #388e3c' }}>
+                            <h3 style={{ margin: '0 0 10px 0', color: '#388e3c', fontSize: '15px' }}>✅ Total de Itens Devolvidos</h3>
+                            <p style={{ fontSize: '36px', fontWeight: 'bold', margin: 0 }}>{totalDevolvidos}</p>
+                        </div>
+                    </section>
+
+                    {/* INTERFACE DO PARÂMETRO INDIVIDUAL VALOR 3 */}
+                    {categoriasAlerta.length > 0 && (
+                        <div style={{ background: '#ffebee', color: '#c62828', padding: '15px', borderRadius: '8px', marginBottom: '25px', border: '1px solid #ef5350' }}>
+                            <strong> ALERTA DE CAPACIDADE CRÍTICA DO ARMÁRIO (Mínimo de 3 Itens)</strong>
+                            <p style={{ margin: '5px 0 0 0', fontSize: '14px' }}>
+                                As categorias [ <strong>{categoriasAlerta.join(', ')}</strong> ] atingiram o limite de 3 ou mais objetos pendentes. Realize uma triagem.
+                            </p>
+                        </div>
+                    )}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '30px' }}>
+                        {/* FORMULÁRIO */}
+                        <form onSubmit={handleCadastrar} style={{ background: '#f5f5f5', padding: '20px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '12px', height: 'fit-content' }}>
+                            <h3 style={{ marginTop: 0 }}>Novo Registro</h3>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold' }}>Descrição:</label>
+                                <input type="text" value={descricao} onChange={e => setDescricao(e.target.value)} style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }} placeholder="Ex: Casaco azul Nike" />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold' }}>Local:</label>
+                                <input type="text" value={localEncontrado} onChange={e => setLocalEncontrado(e.target.value)} style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }} placeholder="Ex: Pátio" />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold' }}>Data:</label>
+                                <input type="date" value={dataEncontro} onChange={e => setDataEncontro(e.target.value)} style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }} />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold' }}>Categoria:</label>
+                                <select value={categoria} onChange={e => setCategoria(e.target.value)} style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}>
+                                    <option value="Material Escolar">Material Escolar</option>
+                                    <option value="Vestuário">Vestuário</option>
+                                    <option value="Eletrônicos">Eletrônicos</option>
+                                    <option value="Outros">Outros</option>
+                                </select>
+                            </div>
+                            <button type="submit" style={{ background: '#0070f3', color: '#fff', padding: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>Registrar</button>
+                        </form>
+
+                        {/* LISTAGEM E BUSCA */}
+                        <div>
